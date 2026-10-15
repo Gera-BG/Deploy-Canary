@@ -38,13 +38,27 @@ jobs:
           grep -q '"version":"v2"' /tmp/distribution.txt
       - name: Promote and rollback
         run: |
+          wait_for_version() {
+            local expected="$1"
+            local max_attempts=15
+            for i in $(seq 1 $max_attempts); do
+              response=$(curl -fsS http://127.0.0.1:8080/api/info 2>/dev/null || echo "")
+              if echo "$response" | grep -q "\"version\":\"$expected\""; then
+                echo "✅ Versión $expected confirmada tras $i intentos"
+                return 0
+              fi
+              echo "Intento $i/$max_attempts: esperando versión $expected, actual: $response"
+              sleep 1
+            done
+            echo "❌ Timeout esperando versión $expected"
+            return 1
+          }
+
+          echo "=== Activando green ==="
           ./scripts/promote.sh green
-          curl -fsS http://127.0.0.1:8080/api/info | grep -q '"version":"v2"'
+          wait_for_version "v2"
+
+          echo ""
+          echo "=== Activando blue ==="
           ./scripts/promote.sh blue
-          curl -fsS http://127.0.0.1:8080/api/info | grep -q '"version":"v1"'
-      - name: Logs on failure
-        if: failure()
-        run: docker compose logs
-      - name: Tear down
-        if: always()
-        run: docker compose down -v
+          wait_for_version "v1"
