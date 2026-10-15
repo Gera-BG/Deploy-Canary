@@ -26,6 +26,10 @@ jobs:
           done
           docker compose logs
           exit 1
+          
+      - name: Fix script permissions
+        run: chmod +x scripts/*.sh
+
       - name: Validate canary routing
         run: |
           ./scripts/promote.sh canary10
